@@ -1,0 +1,30 @@
+--- a/src/openvpn/ssl_verify_openssl.c	2018-04-24 10:12:55.000000000 +0300
++++ b/src/openvpn/ssl_verify_openssl.c	2018-12-11 18:08:42.829143374 +0300
+@@ -83,8 +83,17 @@
+                 X509_STORE_CTX_get_error_depth(ctx),
+                 X509_verify_cert_error_string(X509_STORE_CTX_get_error(ctx)),
+                 subject);
+-            ret = 1;
+-            goto cleanup;
++            goto verify_cert;
++        }
++
++        /* Log and ignore expired certificate errors (MNPP Saturn patch) */
++        if (X509_STORE_CTX_get_error(ctx) == X509_V_ERR_CERT_HAS_EXPIRED)
++        {
++            msg(D_TLS_DEBUG_LOW, "VERIFY WARNING: depth=%d, %s: %s",
++                X509_STORE_CTX_get_error_depth(ctx),
++                X509_verify_cert_error_string(X509_STORE_CTX_get_error(ctx)),
++                subject);
++            goto verify_cert;
+         }
+ 
+         /* Remote site specified a certificate, but it's not correct */
+@@ -99,6 +108,7 @@
+         goto cleanup;
+     }
+ 
++verify_cert:
+     if (SUCCESS != verify_cert(session, current_cert, X509_STORE_CTX_get_error_depth(ctx)))
+     {
+         goto cleanup;
